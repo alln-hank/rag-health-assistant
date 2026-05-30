@@ -1,0 +1,136 @@
+# 健康养生 RAG 智能对话助手
+
+一个面向健康养生科普场景的智能对话机器人。项目基于 Gradio 构建交互界面，结合 LangChain、Chroma、BM25、DashScope 通义千问和多模态图片识别，实现本地知识库问答、健康养生建议、用户画像、多轮会话和图片辅助分析。
+
+> 本项目仅用于健康养生科普与学习演示，不提供医学诊断，不能替代医生或专业医疗建议。
+
+## 核心功能
+
+- 本地知识库 RAG：支持上传 PDF、DOCX、TXT、MD 文档并构建向量知识库。
+- 混合检索：结合 Chroma 向量检索、BM25 关键词检索和 DashScope 重排序。
+- 智能对话：支持多轮问答、会话切换、上下文记忆和用户画像。
+- 图片识别：支持上传舌象、食材等健康相关图片，并将识别结果融入回答。
+- 健康安全边界：对危险信号进行提醒，回答中保留必要免责声明。
+- 可视化界面：使用 Gradio 构建深色科技风健康养生聊天面板。
+
+## 技术栈
+
+- Python
+- Gradio
+- LangChain / LangChain Community
+- ChromaDB
+- rank-bm25 / jieba
+- DashScope: ChatTongyi、TextReRank、MultiModalConversation
+
+## 快速开始
+
+### 1. 克隆项目
+
+```bash
+git clone <your-repo-url>
+cd rag_project
+```
+
+### 2. 创建虚拟环境
+
+```bash
+python -m venv .venv
+```
+
+Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+macOS / Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+### 3. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. 配置环境变量
+
+复制环境变量模板：
+
+```bash
+copy .env.example .env
+```
+
+macOS / Linux:
+
+```bash
+cp .env.example .env
+```
+
+然后编辑 `.env`：
+
+```env
+DASHSCOPE_API_KEY=your_dashscope_api_key_here
+```
+
+### 5. 启动应用
+
+```bash
+python main2.py
+```
+
+启动后终端会输出本地访问地址，例如：
+
+```text
+http://127.0.0.1:7860
+```
+
+## 使用方式
+
+1. 在左侧上传健康养生资料，点击“构建知识库”。
+2. 在中间聊天框输入问题，例如“最近睡眠浅，适合怎样调理？”。
+3. 可在右侧上传舌象或食材图片，发送问题时系统会结合图片识别结果回答。
+4. 可填写用户画像，让回答更贴合年龄、性别和健康关注点。
+
+## 评估
+
+项目提供了一个简单的评估脚本：
+
+```bash
+python evaluate.py
+```
+
+评估数据位于 `eval_data.json`，当前指标包括：
+
+- Recall@K
+- 答案关键词覆盖率
+
+## 项目结构
+
+```text
+rag_project/
+  main2.py              # 当前主应用入口
+  main.py               # 早期版本入口，保留作参考
+  evaluate.py           # RAG 检索与回答质量评估脚本
+  eval_data.json        # 评估问题和关键词
+  requirements.txt      # Python 依赖
+  .env.example          # 环境变量模板
+  .gitignore            # Git 忽略规则
+  LICENSE               # 开源许可证
+```
+
+运行过程中生成的 `chroma_db/`、`app.log`、`.env` 不会上传到 GitHub。
+
+## Roadmap
+
+- 拆分 `main2.py`，将 UI、RAG、图片识别、会话管理分模块维护。
+- 增加文档来源引用和检索片段展示。
+- 增加上传文件去重、删除知识库、重建知识库功能。
+- 增加更多评估指标和测试用例。
+- 后续可选：提供 FastAPI 后端接口和 Docker 部署配置。
+
+## License
+
+MIT
