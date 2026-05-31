@@ -44,6 +44,38 @@ class HealthToolService:
             lines.append(f"- {item['title']}：{item['result']}")
         return "\n".join(lines)
 
+    def format_catalog_for_prompt(self) -> str:
+        return "\n".join(
+            f"- {tool['title']}（{tool['name']}）：{tool['description']}"
+            for tool in self.list_tools()
+        )
+
+    def is_tool_capability_question(self, text: str) -> bool:
+        text = text or ""
+        capability_keywords = (
+            "外部工具",
+            "工具调用",
+            "调用工具",
+            "有哪些工具",
+            "能用什么工具",
+            "能调用什么",
+            "可以调用工具",
+            "你能调用",
+        )
+        return any(keyword in text for keyword in capability_keywords)
+
+    def capability_response(self) -> str:
+        return (
+            "我目前可以调用项目内置的健康养生工具，但还没有接入联网搜索、天气、地图、日历等真正外部平台工具。\n\n"
+            "已支持的内置健康工具包括：\n"
+            f"{self.format_catalog_for_prompt()}\n\n"
+            "例如你可以这样问：\n"
+            "- 身高170cm，体重70kg，帮我算一下BMI。\n"
+            "- 体重60kg，每天喝多少水比较合适？\n"
+            "- 如果我早上7点起床，晚上几点睡比较好？\n"
+            "- 我30岁，温和有氧运动心率控制在多少合适？"
+        )
+
     def list_tools(self) -> list[dict[str, str]]:
         return [
             {

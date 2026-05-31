@@ -54,12 +54,6 @@ class ChatService:
         return self._llm
 
     async def answer(self, request: ChatRequest) -> ChatResponse:
-        if not settings.dashscope_api_key:
-            return ChatResponse(
-                session_id=request.session_id or str(uuid.uuid4()),
-                answer="后端未设置 DASHSCOPE_API_KEY，无法调用通义千问模型。请先在 .env 中配置密钥。",
-            )
-
         message = (request.message or "").strip()
         if len(message) > settings.max_input_length:
             message = message[:settings.max_input_length]
@@ -72,6 +66,17 @@ class ChatService:
 
         if not message:
             return ChatResponse(session_id=session_id, answer="请输入问题后再发送。")
+
+        if health_tool_service.is_tool_capability_question(message):
+            answer = health_tool_service.capability_response()
+            self._append_history(session_id, message, answer)
+            return ChatResponse(session_id=session_id, answer=answer)
+
+        if not settings.dashscope_api_key:
+            return ChatResponse(
+                session_id=session_id,
+                answer="后端未设置 DASHSCOPE_API_KEY，无法调用通义千问模型。请先在 .env 中配置密钥。",
+            )
 
         profile_text = self._profile_to_text(request.user_profile)
         cache_key = self._cache_key(message, profile_text) if not request.image_path else None
@@ -118,6 +123,7 @@ class ChatService:
             history=self.sessions[session_id][-4:],
             image_hint=image_hint,
             tool_context=health_tool_service.format_for_prompt(raw_tool_results),
+            tool_catalog=health_tool_service.format_catalog_for_prompt(),
         )
         answer = await self._call_llm(prompt)
 
@@ -224,6 +230,7 @@ class ChatService:
         history: list[dict[str, str]],
         image_hint: str,
         tool_context: str,
+        tool_catalog: str,
     ) -> str:
         history_text = ""
         for turn in history:
@@ -244,9 +251,10 @@ class ChatService:
 3. 优先结合用户画像，年龄、性别、健康状况会影响措辞和建议强度。
 4. 严格基于参考资料综合回答；资料没有覆盖时说明“根据现有资料无法回答”，但可建议补充资料或咨询专业人士。
 5. 如果用户上传了图片，请结合图片识别结果和参考资料；不要说成用户自己文字描述。
-6. 如果触发了健康计算工具，请优先引用【工具调用结果】中的确定性计算结果，但不要把它当作医学诊断。
-7. {red_flag_rule}
-8. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
+6. 你具备【可用健康工具】中列出的内置工具调用能力；如果用户询问你能否调用工具，请如实说明可调用这些内置健康工具，但未接入联网搜索、天气、地图、日历等外部平台工具。
+7. 如果触发了健康计算工具，请优先引用【工具调用结果】中的确定性计算结果，但不要把它当作医学诊断。
+8. {red_flag_rule}
+9. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
 
 【用户背景】
 {profile_text or "用户未填写画像。"}
@@ -256,6 +264,9 @@ class ChatService:
 
 【图片处理提示】
 {image_hint}
+
+【可用健康工具】
+{tool_catalog}
 
 【工具调用结果】
 {tool_context}

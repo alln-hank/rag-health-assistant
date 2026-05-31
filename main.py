@@ -56,8 +56,21 @@ if not logger.handlers:
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-# 初始化大模型
-llm = ChatTongyi(model="qwen-max", temperature=0.1)
+# 初始化大模型（懒加载，避免未配置 API Key 时启动即崩溃）
+llm = None
+
+
+def has_dashscope_key():
+    return bool(os.getenv("DASHSCOPE_API_KEY", "").strip())
+
+
+def get_llm():
+    global llm
+    if not has_dashscope_key():
+        return None
+    if llm is None:
+        llm = ChatTongyi(model="qwen-max", temperature=0.1)
+    return llm
 
 # 全局变量
 db = None
@@ -212,6 +225,9 @@ def profile_to_text(user_profile):
 # ===================== 文件上传 + 构建知识库 =====================
 def build_knowledge_base(files):
     global db, bm25_index, bm25_docs
+
+    if not has_dashscope_key():
+        return "请先在 .env 中配置 DASHSCOPE_API_KEY，再构建知识库。"
 
     if not files:
         return "请先上传文件！"
@@ -390,6 +406,9 @@ def normalize_image_path(image):
 
 
 def analyze_image(image) -> str:
+    if not has_dashscope_key():
+        return "图片分析失败：请先在 .env 中配置 DASHSCOPE_API_KEY。"
+
     image_path = normalize_image_path(image)
     if not image_path or not os.path.exists(image_path):
         return ""
@@ -473,7 +492,10 @@ def retrieve_docs(query):
 
 
 async def call_llm(prompt):
-    response = await asyncio.to_thread(lambda: llm.invoke([HumanMessage(content=prompt)]))
+    model = get_llm()
+    if model is None:
+        return "请先在 .env 中配置 DASHSCOPE_API_KEY，再使用智能问答功能。"
+    response = await asyncio.to_thread(lambda: model.invoke([HumanMessage(content=prompt)]))
     return response.content
 
 
@@ -536,6 +558,15 @@ async def respond(
     prior_history = chat_history[-4:]
     initial_tool_results = health_tool_service.run_tools(message, user_profile)
 
+    if health_tool_service.is_tool_capability_question(message):
+        answer = health_tool_service.capability_response()
+        chat_history.append({"role": "user", "content": message})
+        chat_history.append({"role": "assistant", "content": answer})
+        session["history"] = chat_history
+        choices = [(get_session_display_name(sessions[k]), k) for k in sessions]
+        yield "", chat_history, sessions, gr.update(choices=choices, value=current_id), current_session_label(sessions, current_id)
+        return
+
     if not image_path and not initial_tool_results:
         cache_key = f"text::{message}::profile::{profile_text}"
         cached = get_cache(cache_key)
@@ -587,6 +618,7 @@ async def respond(
         expanded_query = expand_query(final_query)
         tool_results = health_tool_service.run_tools(final_query, user_profile)
         tool_context = health_tool_service.format_for_prompt(tool_results)
+        tool_catalog = health_tool_service.format_catalog_for_prompt()
         top_docs = await asyncio.to_thread(retrieve_docs, expanded_query)
         context = "\n\n---\n\n".join([doc.page_content for doc in top_docs]) if top_docs else "暂无相关知识库资料。"
 
@@ -609,9 +641,10 @@ async def respond(
 3. 优先结合用户画像，年龄、性别、健康状况会影响措辞和建议强度。
 4. 严格基于参考资料综合回答；资料没有覆盖时说明“根据现有资料无法回答”，但可建议补充资料或咨询专业人士。
 5. 如果用户上传了图片，请结合图片识别结果和参考资料；不要说成用户自己文字描述。
-6. 如果触发了健康计算工具，请优先引用【工具调用结果】中的确定性计算结果，但不要把它当作医学诊断。
-7. {red_flag_rule}
-8. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
+6. 你具备【可用健康工具】中列出的内置工具调用能力；如果用户询问你能否调用工具，请如实说明可调用这些内置健康工具，但未接入联网搜索、天气、地图、日历等外部平台工具。
+7. 如果触发了健康计算工具，请优先引用【工具调用结果】中的确定性计算结果，但不要把它当作医学诊断。
+8. {red_flag_rule}
+9. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
 
 【用户背景】
 {profile_text or "用户未填写画像。"}
@@ -621,6 +654,9 @@ async def respond(
 
 【图片处理提示】
 {image_hint}
+
+【可用健康工具】
+{tool_catalog}
 
 【工具调用结果】
 {tool_context}
@@ -2475,17 +2511,23 @@ with gr.Blocks(
 
 # 启动
 if __name__ == "__main__":
-    embeddings = DashScopeEmbeddings(model="text-embedding-v1")
+    if has_dashscope_key():
+        embeddings = DashScopeEmbeddings(model="text-embedding-v1")
 
-    try:
-        db = load_chroma_store(embeddings)
-        print("已加载现有向量知识库")
-        schedule_bm25_rebuild()
-    except Exception as e:
+        try:
+            db = load_chroma_store(embeddings)
+            print("已加载现有向量知识库")
+            schedule_bm25_rebuild()
+        except Exception as e:
+            db = None
+            bm25_index = None
+            bm25_docs = []
+            print(f"未找到现有知识库：{e}")
+    else:
         db = None
         bm25_index = None
         bm25_docs = []
-        print(f"未找到现有知识库：{e}")
+        print("未设置 DASHSCOPE_API_KEY，已跳过现有知识库加载。页面会正常启动，但问答/构建知识库前需要配置 .env。")
 
     launch_port = get_launch_port()
     print(f"准备启动服务：http://127.0.0.1:{launch_port}")
