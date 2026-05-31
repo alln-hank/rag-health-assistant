@@ -318,18 +318,20 @@ def rerank(query, docs, top_k=5):
         return []
 
     documents = [doc.page_content for doc in docs]
-    resp = TextReRank.call(
-        model='gte-rerank',
-        query=query,
-        documents=documents,
-        top_n=top_k
-    )
-    if resp.status_code == 200:
-        reranked_indices = [item['index'] for item in resp.output['results']]
-        return [docs[i] for i in reranked_indices]
-    else:
-        print(f"重排序失败：{resp.message}")
-        return docs[:top_k]
+    try:
+        resp = TextReRank.call(
+            model='gte-rerank',
+            query=query,
+            documents=documents,
+            top_n=top_k
+        )
+        if resp.status_code == 200:
+            reranked_indices = [item['index'] for item in resp.output['results']]
+            return [docs[i] for i in reranked_indices]
+        logger.warning(f"重排序不可用，已降级为原始检索排序：{getattr(resp, 'message', 'unknown error')}")
+    except Exception as exc:
+        logger.warning(f"重排序异常，已降级为原始检索排序：{exc}")
+    return docs[:top_k]
 
 
 def rebuild_bm25_from_db():
@@ -619,7 +621,23 @@ async def respond(
         tool_results = health_tool_service.run_tools(final_query, user_profile)
         tool_context = health_tool_service.format_for_prompt(tool_results)
         tool_catalog = health_tool_service.format_catalog_for_prompt()
-        top_docs = await asyncio.to_thread(retrieve_docs, expanded_query)
+        if tool_results and not image_path and not is_health_query(final_query):
+            answer = health_tool_service.direct_answer(tool_results)
+            log_docs = "工具直接回答"
+            logger.info(
+                f"回答完成 | IP:{client_id} | 会话:{current_id} | 查询:{sanitize_for_log(final_query)} | "
+                f"检索片段:{log_docs} | 回答:{sanitize_for_log(answer)}"
+            )
+            async for payload in _stream_answer(chat_history, answer, sessions, current_id):
+                yield payload
+            return
+
+        if tool_results and db is None:
+            top_docs = []
+        elif tool_results and not is_health_query(final_query) and not image_path:
+            top_docs = []
+        else:
+            top_docs = await asyncio.to_thread(retrieve_docs, expanded_query)
         context = "\n\n---\n\n".join([doc.page_content for doc in top_docs]) if top_docs else "暂无相关知识库资料。"
 
         history_text = ""

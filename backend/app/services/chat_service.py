@@ -109,7 +109,21 @@ class ChatService:
         expanded_query = self._expand_query(final_query)
         raw_tool_results = health_tool_service.run_tools(final_query, request.user_profile)
         tool_results = [ToolResult(**item) for item in raw_tool_results]
-        top_docs = await asyncio.to_thread(rag_service.retrieve_docs, expanded_query)
+        if raw_tool_results and not request.image_path and not self._is_health_query(final_query):
+            answer = health_tool_service.direct_answer(raw_tool_results)
+            self._append_history(session_id, message, answer)
+            return ChatResponse(
+                session_id=session_id,
+                answer=answer,
+                tool_results=tool_results,
+            )
+
+        if raw_tool_results and rag_service.db is None:
+            top_docs = []
+        elif raw_tool_results and not self._is_health_query(final_query) and not request.image_path:
+            top_docs = []
+        else:
+            top_docs = await asyncio.to_thread(rag_service.retrieve_docs, expanded_query)
         context = "\n\n---\n\n".join([doc.page_content for doc in top_docs]) if top_docs else "暂无相关知识库资料。"
         sources = [
             SourceSnippet(index=index + 1, content=doc.page_content[:500])

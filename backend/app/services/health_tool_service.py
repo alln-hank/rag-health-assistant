@@ -76,6 +76,16 @@ class HealthToolService:
             "- 我30岁，温和有氧运动心率控制在多少合适？"
         )
 
+    def direct_answer(self, results: list[dict[str, Any]]) -> str:
+        if not results:
+            return ""
+        lines = ["已调用健康计算工具，结果如下："]
+        for item in results:
+            lines.append(f"- {item['title']}：{item['result']}")
+        lines.append("")
+        lines.append("提示：以上结果用于健康养生科普和日常参考，不能替代医生或专业营养师的个体化评估。")
+        return "\n".join(lines)
+
     def list_tools(self) -> list[dict[str, str]]:
         return [
             {

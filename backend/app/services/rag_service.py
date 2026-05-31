@@ -166,15 +166,18 @@ class RAGService:
         if not docs:
             return []
         documents = [doc.page_content for doc in docs]
-        resp = TextReRank.call(
-            model=settings.rerank_model,
-            query=query,
-            documents=documents,
-            top_n=top_k,
-        )
-        if resp.status_code == 200:
-            indices = [item["index"] for item in resp.output["results"]]
-            return [docs[i] for i in indices]
+        try:
+            resp = TextReRank.call(
+                model=settings.rerank_model,
+                query=query,
+                documents=documents,
+                top_n=top_k,
+            )
+            if resp.status_code == 200:
+                indices = [item["index"] for item in resp.output["results"]]
+                return [docs[i] for i in indices]
+        except Exception:
+            return docs[:top_k]
         return docs[:top_k]
 
 
