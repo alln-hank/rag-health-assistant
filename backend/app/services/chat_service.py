@@ -8,8 +8,9 @@ from langchain_core.messages import HumanMessage
 from langchain_community.chat_models import ChatTongyi
 
 from backend.app.config import settings
-from backend.app.schemas import ChatRequest, ChatResponse, SourceSnippet, UserProfile
+from backend.app.schemas import ChatRequest, ChatResponse, SourceSnippet, ToolResult, UserProfile
 from backend.app.services.cache_service import cache_service
+from backend.app.services.health_tool_service import health_tool_service
 from backend.app.services.image_service import analyze_image, is_image_analysis_error
 from backend.app.services.rag_service import rag_service
 
@@ -84,6 +85,7 @@ class ChatService:
                     answer=answer,
                     cached=True,
                     sources=[SourceSnippet(**item) for item in cached.get("sources", [])],
+                    tool_results=[ToolResult(**item) for item in cached.get("tool_results", [])],
                 )
 
         final_query = message
@@ -100,6 +102,8 @@ class ChatService:
                 final_query = f"{message}\n\n图片识别未成功：{image_description or '未获得有效图片描述'}"
 
         expanded_query = self._expand_query(final_query)
+        raw_tool_results = health_tool_service.run_tools(final_query, request.user_profile)
+        tool_results = [ToolResult(**item) for item in raw_tool_results]
         top_docs = await asyncio.to_thread(rag_service.retrieve_docs, expanded_query)
         context = "\n\n---\n\n".join([doc.page_content for doc in top_docs]) if top_docs else "暂无相关知识库资料。"
         sources = [
@@ -113,6 +117,7 @@ class ChatService:
             profile_text=profile_text,
             history=self.sessions[session_id][-4:],
             image_hint=image_hint,
+            tool_context=health_tool_service.format_for_prompt(raw_tool_results),
         )
         answer = await self._call_llm(prompt)
 
@@ -127,6 +132,7 @@ class ChatService:
                 {
                     "answer": answer,
                     "sources": [source.dict() for source in sources],
+                    "tool_results": [tool.dict() for tool in tool_results],
                 },
             )
 
@@ -135,6 +141,7 @@ class ChatService:
             answer=answer,
             image_description=image_description,
             sources=sources,
+            tool_results=tool_results,
         )
 
     async def stream_answer(self, request: ChatRequest):
@@ -216,6 +223,7 @@ class ChatService:
         profile_text: str,
         history: list[dict[str, str]],
         image_hint: str,
+        tool_context: str,
     ) -> str:
         history_text = ""
         for turn in history:
@@ -236,8 +244,9 @@ class ChatService:
 3. 优先结合用户画像，年龄、性别、健康状况会影响措辞和建议强度。
 4. 严格基于参考资料综合回答；资料没有覆盖时说明“根据现有资料无法回答”，但可建议补充资料或咨询专业人士。
 5. 如果用户上传了图片，请结合图片识别结果和参考资料；不要说成用户自己文字描述。
-6. {red_flag_rule}
-7. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
+6. 如果触发了健康计算工具，请优先引用【工具调用结果】中的确定性计算结果，但不要把它当作医学诊断。
+7. {red_flag_rule}
+8. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
 
 【用户背景】
 {profile_text or "用户未填写画像。"}
@@ -247,6 +256,9 @@ class ChatService:
 
 【图片处理提示】
 {image_hint}
+
+【工具调用结果】
+{tool_context}
 
 【参考资料】
 {context}

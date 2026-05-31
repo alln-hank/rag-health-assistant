@@ -14,6 +14,13 @@ class SourceSnippet(BaseModel):
     content: str
 
 
+class ToolResult(BaseModel):
+    name: str
+    title: str
+    result: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
 class ChatRequest(BaseModel):
     message: str = Field(default="", max_length=1000)
     session_id: str | None = None
@@ -27,6 +34,16 @@ class ChatResponse(BaseModel):
     cached: bool = False
     image_description: str | None = None
     sources: list[SourceSnippet] = Field(default_factory=list)
+    tool_results: list[ToolResult] = Field(default_factory=list)
+
+
+class ToolRunRequest(BaseModel):
+    text: str
+    user_profile: UserProfile | None = None
+
+
+class ToolRunResponse(BaseModel):
+    results: list[ToolResult] = Field(default_factory=list)
 
 
 class UploadResponse(BaseModel):

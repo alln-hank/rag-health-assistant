@@ -35,6 +35,8 @@ import jieba
 from dashscope import TextReRank, MultiModalConversation
 import dashscope
 
+from backend.app.services.health_tool_service import health_tool_service
+
 load_dotenv()
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "").strip()
 if DASHSCOPE_API_KEY:
@@ -532,8 +534,9 @@ async def respond(
     profile_text = profile_to_text(user_profile)
     display_message = message if not image_path else f"{message}\n\n[已上传图片，正在进行图像观察]"
     prior_history = chat_history[-4:]
+    initial_tool_results = health_tool_service.run_tools(message, user_profile)
 
-    if not image_path:
+    if not image_path and not initial_tool_results:
         cache_key = f"text::{message}::profile::{profile_text}"
         cached = get_cache(cache_key)
         if cached:
@@ -544,7 +547,7 @@ async def respond(
             yield "", chat_history, sessions, gr.update(choices=session_choices(sessions), value=current_id), current_session_label(sessions, current_id)
             return
 
-    if db is None and not image_path:
+    if db is None and not image_path and not initial_tool_results:
         answer = "请先上传并构建知识库。"
         chat_history.append({"role": "user", "content": message})
         chat_history.append({"role": "assistant", "content": answer})
@@ -557,6 +560,8 @@ async def respond(
     status = "正在分析图片并检索健康资料..." if image_path else "正在检索健康资料..."
     if db is None and image_path:
         status = "正在分析图片..."
+    elif db is None and initial_tool_results:
+        status = "正在调用健康计算工具..."
     chat_history.append({"role": "assistant", "content": status})
     session["history"] = chat_history
     yield "", chat_history, sessions, gr.update(choices=session_choices(sessions), value=current_id), current_session_label(sessions, current_id)
@@ -580,6 +585,8 @@ async def respond(
                 logger.warning(f"图片分析未成功 | IP:{client_id} | 会话:{current_id} | {sanitize_for_log(image_desc)}")
 
         expanded_query = expand_query(final_query)
+        tool_results = health_tool_service.run_tools(final_query, user_profile)
+        tool_context = health_tool_service.format_for_prompt(tool_results)
         top_docs = await asyncio.to_thread(retrieve_docs, expanded_query)
         context = "\n\n---\n\n".join([doc.page_content for doc in top_docs]) if top_docs else "暂无相关知识库资料。"
 
@@ -602,8 +609,9 @@ async def respond(
 3. 优先结合用户画像，年龄、性别、健康状况会影响措辞和建议强度。
 4. 严格基于参考资料综合回答；资料没有覆盖时说明“根据现有资料无法回答”，但可建议补充资料或咨询专业人士。
 5. 如果用户上传了图片，请结合图片识别结果和参考资料；不要说成用户自己文字描述。
-6. {red_flag_rule}
-7. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
+6. 如果触发了健康计算工具，请优先引用【工具调用结果】中的确定性计算结果，但不要把它当作医学诊断。
+7. {red_flag_rule}
+8. 建议按“观察/可能相关因素/日常调理/需要就医的情况”组织，保持简洁、可执行。
 
 【用户背景】
 {profile_text or "用户未填写画像。"}
@@ -613,6 +621,9 @@ async def respond(
 
 【图片处理提示】
 {image_hint}
+
+【工具调用结果】
+{tool_context}
 
 【参考资料】
 {context}

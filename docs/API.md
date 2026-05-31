@@ -68,7 +68,8 @@ Response:
   "answer": "模型回答内容",
   "cached": false,
   "image_description": null,
-  "sources": []
+  "sources": [],
+  "tool_results": []
 }
 ```
 
@@ -117,6 +118,60 @@ Supported file types:
 - `.docx`
 - `.txt`
 - `.md`
+
+## Health Tools
+
+List supported tools:
+
+```http
+GET /api/tools
+```
+
+Run tools by text:
+
+```http
+POST /api/tools/run
+```
+
+Request:
+
+```json
+{
+  "text": "身高170cm，体重70kg，帮我算一下BMI",
+  "user_profile": {
+    "age": "25",
+    "gender": "保密",
+    "health": ""
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "results": [
+    {
+      "name": "bmi_calculator",
+      "title": "BMI 计算工具",
+      "result": "身高 170 cm、体重 70 kg，对应 BMI 约 24.2，属于超重。",
+      "data": {
+        "height_cm": 170,
+        "weight_kg": 70,
+        "bmi": 24.2,
+        "category": "超重"
+      }
+    }
+  ]
+}
+```
+
+Current built-in tools:
+
+- BMI 计算工具
+- 饮水量估算工具
+- 睡眠作息工具
+- 运动心率工具
 
 ## Image Analysis
 

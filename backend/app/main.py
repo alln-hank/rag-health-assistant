@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.config import settings
-from backend.app.routers import chat, image, knowledge
+from backend.app.routers import chat, image, knowledge, tools
 from backend.app.schemas import HealthResponse
 from backend.app.services.cache_service import cache_service
 from backend.app.services.rag_service import rag_service
@@ -74,3 +74,4 @@ async def health():
 app.include_router(chat.router, prefix=settings.api_prefix)
 app.include_router(knowledge.router, prefix=settings.api_prefix)
 app.include_router(image.router, prefix=settings.api_prefix)
+app.include_router(tools.router, prefix=settings.api_prefix)

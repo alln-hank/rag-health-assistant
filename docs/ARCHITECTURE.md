@@ -38,6 +38,7 @@ FastAPI backend
       +-- rag_service.py
       +-- image_service.py
       +-- cache_service.py
+      +-- health_tool_service.py
 ```
 
 ## Service Responsibilities
@@ -45,6 +46,7 @@ FastAPI backend
 - `chat_service.py`: prompt construction, conversation memory, answer generation, SSE streaming.
 - `rag_service.py`: document loading, text splitting, vector storage, BM25 retrieval, reranking.
 - `image_service.py`: health-related image description through DashScope multimodal model.
+- `health_tool_service.py`: deterministic health tools such as BMI calculation, water intake estimation, sleep planning, and exercise heart-rate estimation.
 - `cache_service.py`: optional Redis-backed rate limiting and answer cache, with in-memory fallback.
 
 ## Why Keep Gradio
@@ -56,4 +58,5 @@ Gradio remains useful for quick demos and local experiments. The FastAPI backend
 - Add a Vue3 frontend that calls the FastAPI APIs.
 - Add MySQL or SQLite persistence for long-term sessions.
 - Move shared RAG logic out of `main.py` so Gradio and FastAPI can reuse the same service layer.
+- Expand tool calling with weather, food nutrition, and reminder tools when external APIs are available.
 - Add Docker Compose for API, Redis, and optional database services.

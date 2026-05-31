@@ -22,6 +22,9 @@ python main.py
 湿气重有什么表现，日常怎么调理？
 最近睡眠浅，适合怎样调整作息和饮食？
 脾胃不舒服，饮食上应该注意什么？
+身高170cm，体重70kg，帮我算一下BMI并给点建议
+体重60kg，每天喝多少水比较合适？
+如果我早上7点起床，晚上几点睡比较好？
 ```
 
 ## 核心功能
@@ -30,6 +33,7 @@ python main.py
 - 混合检索：结合 Chroma 向量检索、BM25 关键词检索和 DashScope 重排序。
 - 智能对话：支持多轮问答、会话切换、上下文记忆和用户画像。
 - 图片识别：支持上传舌象、食材等健康相关图片，并将识别结果融入回答。
+- 健康工具调用：支持 BMI 计算、饮水量估算、睡眠作息规划和运动心率估算，并将工具结果注入回答。
 - FastAPI 接口化：提供聊天、流式聊天、知识库构建、图片识别和健康检查接口，便于后续接入 Vue/React 前端。
 - 可选 Redis：支持 Redis 接口限流和回答缓存；未配置 Redis 时自动退回内存模式。
 - 健康安全边界：对危险信号进行提醒，回答中保留必要免责声明。
@@ -43,7 +47,8 @@ flowchart LR
     B --> C["Embedding 向量化"]
     C --> D["Chroma 向量库"]
     E["用户提问 / 上传图片"] --> F["图片识别与问题改写"]
-    F --> G["向量检索 + BM25 混合召回"]
+    F --> L["健康工具调用"]
+    L --> G["向量检索 + BM25 混合召回"]
     D --> G
     G --> H["TextReRank 重排序"]
     H --> I["Prompt 组装"]
@@ -196,6 +201,8 @@ POST /api/chat
 POST /api/chat/stream
 GET  /api/chat/sessions
 DELETE /api/chat/sessions/{session_id}
+GET  /api/tools
+POST /api/tools/run
 POST /api/knowledge/upload
 POST /api/knowledge/build
 GET  /api/knowledge/status
@@ -208,6 +215,14 @@ POST /api/image/analyze
 curl -X POST "http://127.0.0.1:8000/api/chat" ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"最近睡眠浅，适合怎样调理？\",\"user_profile\":{\"age\":\"25\",\"gender\":\"保密\",\"health\":\"经常熬夜\"}}"
+```
+
+健康工具调用示例：
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/tools/run" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"text\":\"身高170cm，体重70kg，帮我算一下BMI\"}"
 ```
 
 ## 评估
@@ -233,7 +248,7 @@ rag_project/
       config.py          # 环境变量和运行配置
       schemas.py         # API 请求/响应模型
       routers/           # API 路由
-      services/          # RAG、聊天、图片识别、缓存限流服务
+      services/          # RAG、聊天、图片识别、健康工具、缓存限流服务
   main.py               # Gradio 应用入口
   evaluate.py           # RAG 检索与回答质量评估脚本
   eval_data.json        # 评估问题和关键词
