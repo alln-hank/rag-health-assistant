@@ -1,6 +1,6 @@
 # 健康养生 RAG 智能对话助手
 
-一个面向健康养生科普场景的智能对话机器人。项目基于 Gradio 构建交互界面，结合 LangChain、Chroma、BM25、DashScope 通义千问和多模态图片识别，实现本地知识库问答、健康养生建议、用户画像、多轮会话和图片辅助分析。
+一个面向健康养生科普场景的智能对话机器人。项目同时提供 Gradio 可视化演示入口和 FastAPI 后端 API，结合 LangChain、Chroma、BM25、DashScope 通义千问和多模态图片识别，实现本地知识库问答、健康养生建议、用户画像、多轮会话和图片辅助分析。
 
 > 本项目仅用于健康养生科普与学习演示，不提供医学诊断，不能替代医生或专业医疗建议。
 
@@ -10,6 +10,8 @@
 - 混合检索：结合 Chroma 向量检索、BM25 关键词检索和 DashScope 重排序。
 - 智能对话：支持多轮问答、会话切换、上下文记忆和用户画像。
 - 图片识别：支持上传舌象、食材等健康相关图片，并将识别结果融入回答。
+- FastAPI 接口化：提供聊天、流式聊天、知识库构建、图片识别和健康检查接口，便于后续接入 Vue/React 前端。
+- 可选 Redis：支持 Redis 接口限流和回答缓存；未配置 Redis 时自动退回内存模式。
 - 健康安全边界：对危险信号进行提醒，回答中保留必要免责声明。
 - 可视化界面：使用 Gradio 构建深色科技风健康养生聊天面板。
 
@@ -17,9 +19,11 @@
 
 - Python
 - Gradio
+- FastAPI / Uvicorn
 - LangChain / LangChain Community
 - ChromaDB
 - rank-bm25 / jieba
+- Redis
 - DashScope: ChatTongyi、TextReRank、MultiModalConversation
 
 ## 快速开始
@@ -75,7 +79,7 @@ cp .env.example .env
 DASHSCOPE_API_KEY=your_dashscope_api_key_here
 ```
 
-### 5. 启动应用
+### 5. 启动 Gradio 应用
 
 ```bash
 python main2.py
@@ -87,12 +91,61 @@ python main2.py
 http://127.0.0.1:7860
 ```
 
+### 6. 启动 FastAPI 后端
+
+如果需要接口化服务，使用：
+
+```bash
+uvicorn backend.app.main:app --reload
+```
+
+启动后访问：
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Redis 是可选项。如果本机已安装 Redis，可在 `.env` 中配置：
+
+```env
+REDIS_URL=redis://localhost:6379/0
+RATE_LIMIT=10
+RATE_WINDOW_SECONDS=60
+CACHE_TTL_SECONDS=3600
+```
+
+如果不配置 `REDIS_URL`，后端会自动使用内存限流和缓存。
+
 ## 使用方式
 
 1. 在左侧上传健康养生资料，点击“构建知识库”。
 2. 在中间聊天框输入问题，例如“最近睡眠浅，适合怎样调理？”。
 3. 可在右侧上传舌象或食材图片，发送问题时系统会结合图片识别结果回答。
 4. 可填写用户画像，让回答更贴合年龄、性别和健康关注点。
+
+## FastAPI 接口
+
+常用接口：
+
+```text
+GET  /api/health
+POST /api/chat
+POST /api/chat/stream
+GET  /api/chat/sessions
+DELETE /api/chat/sessions/{session_id}
+POST /api/knowledge/upload
+POST /api/knowledge/build
+GET  /api/knowledge/status
+POST /api/image/analyze
+```
+
+聊天接口示例：
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/chat" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"message\":\"最近睡眠浅，适合怎样调理？\",\"user_profile\":{\"age\":\"25\",\"gender\":\"保密\",\"health\":\"经常熬夜\"}}"
+```
 
 ## 评估
 
@@ -111,6 +164,13 @@ python evaluate.py
 
 ```text
 rag_project/
+  backend/
+    app/
+      main.py            # FastAPI 应用入口
+      config.py          # 环境变量和运行配置
+      schemas.py         # API 请求/响应模型
+      routers/           # API 路由
+      services/          # RAG、聊天、图片识别、缓存限流服务
   main2.py              # 当前主应用入口
   main.py               # 早期版本入口，保留作参考
   evaluate.py           # RAG 检索与回答质量评估脚本
@@ -121,15 +181,16 @@ rag_project/
   LICENSE               # 开源许可证
 ```
 
-运行过程中生成的 `chroma_db/`、`app.log`、`.env` 不会上传到 GitHub。
+运行过程中生成的 `chroma_db/`、`uploads/`、`app.log`、`.env` 不会上传到 GitHub。
 
 ## Roadmap
 
-- 拆分 `main2.py`，将 UI、RAG、图片识别、会话管理分模块维护。
+- 将 Vue3 前端接入当前 FastAPI 后端，实现完整前后端分离。
+- 增加 MySQL 会话持久化，实现长期多轮会话保存和删除。
 - 增加文档来源引用和检索片段展示。
 - 增加上传文件去重、删除知识库、重建知识库功能。
 - 增加更多评估指标和测试用例。
-- 后续可选：提供 FastAPI 后端接口和 Docker 部署配置。
+- 后续可选：提供 Docker 部署配置。
 
 ## License
 
