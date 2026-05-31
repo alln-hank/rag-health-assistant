@@ -4,6 +4,26 @@
 
 > 本项目仅用于健康养生科普与学习演示，不提供医学诊断，不能替代医生或专业医疗建议。
 
+## 一分钟体验
+
+```bash
+git clone https://github.com/alln-hank/rag-health-assistant.git
+cd rag-health-assistant
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+python main.py
+```
+
+启动后打开终端输出的本地地址，上传 `examples/health_knowledge_sample.md`，点击“构建知识库”，然后可以提问：
+
+```text
+湿气重有什么表现，日常怎么调理？
+最近睡眠浅，适合怎样调整作息和饮食？
+脾胃不舒服，饮食上应该注意什么？
+```
+
 ## 核心功能
 
 - 本地知识库 RAG：支持上传 PDF、DOCX、TXT、MD 文档并构建向量知识库。
@@ -15,11 +35,28 @@
 - 健康安全边界：对危险信号进行提醒，回答中保留必要免责声明。
 - 可视化界面：使用 Gradio 构建深色科技风健康养生聊天面板。
 
+## 项目流程
+
+```mermaid
+flowchart LR
+    A["上传养生资料"] --> B["文档加载与文本切分"]
+    B --> C["Embedding 向量化"]
+    C --> D["Chroma 向量库"]
+    E["用户提问 / 上传图片"] --> F["图片识别与问题改写"]
+    F --> G["向量检索 + BM25 混合召回"]
+    D --> G
+    G --> H["TextReRank 重排序"]
+    H --> I["Prompt 组装"]
+    I --> J["通义千问生成回答"]
+    J --> K["Gradio / FastAPI 返回结果"]
+```
+
 ## 文档导航
 
 - [架构说明](docs/ARCHITECTURE.md)
 - [FastAPI 接口说明](docs/API.md)
 - [Redis 可选配置说明](docs/REDIS.md)
+- [示例知识库](examples/health_knowledge_sample.md)
 
 ## 技术栈
 
@@ -31,6 +68,8 @@
 - rank-bm25 / jieba
 - Redis
 - DashScope: ChatTongyi、TextReRank、MultiModalConversation
+
+推荐 Python 版本：`3.10` - `3.12`。
 
 ## 快速开始
 
@@ -141,6 +180,12 @@ CACHE_TTL_SECONDS=3600
 3. 可在右侧上传舌象或食材图片，发送问题时系统会结合图片识别结果回答。
 4. 可填写用户画像，让回答更贴合年龄、性别和健康关注点。
 
+如果只是想快速验证 RAG 效果，可以直接上传：
+
+```text
+examples/health_knowledge_sample.md
+```
+
 ## FastAPI 接口
 
 常用接口：
@@ -190,10 +235,10 @@ rag_project/
       routers/           # API 路由
       services/          # RAG、聊天、图片识别、缓存限流服务
   main.py               # Gradio 应用入口
-  main.py               # 早期版本入口，保留作参考
   evaluate.py           # RAG 检索与回答质量评估脚本
   eval_data.json        # 评估问题和关键词
   docs/                 # 架构、API、Redis 说明文档
+  examples/             # 可直接上传体验的示例知识库
   scripts/              # Windows 启动脚本
   requirements.txt      # Python 依赖
   .env.example          # 环境变量模板
@@ -202,6 +247,24 @@ rag_project/
 ```
 
 运行过程中生成的 `chroma_db/`、`uploads/`、`app.log`、`.env` 不会上传到 GitHub。
+
+## 常见问题
+
+### 没有 Redis 能不能运行？
+
+可以。Redis 是可选能力，不配置 `REDIS_URL` 时 FastAPI 会自动使用内存限流和缓存。
+
+### 为什么回答提示缺少 DASHSCOPE_API_KEY？
+
+需要复制 `.env.example` 为 `.env`，并填写你自己的 DashScope API Key：
+
+```env
+DASHSCOPE_API_KEY=your_dashscope_api_key_here
+```
+
+### 为什么刚启动时知识库为空？
+
+`chroma_db/` 是本地运行数据，不会上传到 GitHub。首次运行需要上传资料并点击“构建知识库”。可以先用 `examples/health_knowledge_sample.md` 体验。
 
 ## Roadmap
 
@@ -215,3 +278,5 @@ rag_project/
 ## License
 
 MIT
+
+如果这个项目对你有帮助，欢迎 Star 支持。
