@@ -12,7 +12,7 @@ User Browser
   |
   | Gradio UI
   v
-main2.py
+main.py
   |
   | RAG retrieval / image analysis / chat generation
   v
@@ -55,5 +55,5 @@ Gradio remains useful for quick demos and local experiments. The FastAPI backend
 
 - Add a Vue3 frontend that calls the FastAPI APIs.
 - Add MySQL or SQLite persistence for long-term sessions.
-- Move shared RAG logic out of `main2.py` so Gradio and FastAPI can reuse the same service layer.
+- Move shared RAG logic out of `main.py` so Gradio and FastAPI can reuse the same service layer.
 - Add Docker Compose for API, Redis, and optional database services.

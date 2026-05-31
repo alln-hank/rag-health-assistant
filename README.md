@@ -88,7 +88,7 @@ DASHSCOPE_API_KEY=your_dashscope_api_key_here
 ### 5. 启动 Gradio 应用
 
 ```bash
-python main2.py
+python main.py
 ```
 
 Windows 也可以双击或执行：
@@ -189,7 +189,7 @@ rag_project/
       schemas.py         # API 请求/响应模型
       routers/           # API 路由
       services/          # RAG、聊天、图片识别、缓存限流服务
-  main2.py              # 当前主应用入口
+  main.py               # Gradio 应用入口
   main.py               # 早期版本入口，保留作参考
   evaluate.py           # RAG 检索与回答质量评估脚本
   eval_data.json        # 评估问题和关键词

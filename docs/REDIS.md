@@ -9,7 +9,7 @@ If `REDIS_URL` is not configured, the FastAPI backend automatically falls back t
 - API rate limiting.
 - Answer cache for repeated text-only questions.
 
-Redis is currently used by the FastAPI backend only. The Gradio entry `python main2.py` still uses its original in-process state.
+Redis is currently used by the FastAPI backend only. The Gradio entry `python main.py` still uses its original in-process state.
 
 ## Enable Redis
 
