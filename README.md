@@ -15,6 +15,12 @@
 - 健康安全边界：对危险信号进行提醒，回答中保留必要免责声明。
 - 可视化界面：使用 Gradio 构建深色科技风健康养生聊天面板。
 
+## 文档导航
+
+- [架构说明](docs/ARCHITECTURE.md)
+- [FastAPI 接口说明](docs/API.md)
+- [Redis 可选配置说明](docs/REDIS.md)
+
 ## 技术栈
 
 - Python
@@ -31,8 +37,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <your-repo-url>
-cd rag_project
+git clone https://github.com/alln-hank/rag-health-assistant.git
+cd rag-health-assistant
 ```
 
 ### 2. 创建虚拟环境
@@ -85,6 +91,12 @@ DASHSCOPE_API_KEY=your_dashscope_api_key_here
 python main2.py
 ```
 
+Windows 也可以双击或执行：
+
+```bash
+scripts\start_gradio.bat
+```
+
 启动后终端会输出本地访问地址，例如：
 
 ```text
@@ -99,13 +111,19 @@ http://127.0.0.1:7860
 uvicorn backend.app.main:app --reload
 ```
 
+Windows 也可以执行：
+
+```bash
+scripts\start_api.bat
+```
+
 启动后访问：
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-Redis 是可选项。如果本机已安装 Redis，可在 `.env` 中配置：
+Redis 是可选项，不安装也能运行。如果本机已安装 Redis，可在 `.env` 中配置：
 
 ```env
 REDIS_URL=redis://localhost:6379/0
@@ -175,6 +193,8 @@ rag_project/
   main.py               # 早期版本入口，保留作参考
   evaluate.py           # RAG 检索与回答质量评估脚本
   eval_data.json        # 评估问题和关键词
+  docs/                 # 架构、API、Redis 说明文档
+  scripts/              # Windows 启动脚本
   requirements.txt      # Python 依赖
   .env.example          # 环境变量模板
   .gitignore            # Git 忽略规则
